@@ -10,8 +10,8 @@ from selenium.webdriver.remote.command import Command
 from selenium.webdriver.support.select import Select
 from selenium.webdriver.support.ui import WebDriverWait
 from unittest2 import TestCase
-from exceptions import TypeError #  , Exception
-from ConfigParser import ConfigParser
+#from exceptions import TypeError #  , Exception
+from configparser import ConfigParser
 #from urllib2 import URLError
 
 import logging
@@ -382,16 +382,20 @@ class ScreenshotOnExceptionWebDriverWait(WebDriverWait):
     def __init__(self, *args, **kwargs):
         super(ScreenshotOnExceptionWebDriverWait, self).__init__(*args, **kwargs)
         global SAVED_FILES_PATH
-        if SAVED_FILES_PATH:
-          if not os.path.exists(SAVED_FILES_PATH):
-            os.makedirs(SAVED_FILES_PATH)
+        if SAVED_FILES_PATH and not os.exists(SAVED_FILES_PATH):
+            os.system("mkdir %s" % SAVED_FILES_PATH)
 
     def until(self, *args, **kwargs):
         try:
             return super(
                 ScreenshotOnExceptionWebDriverWait, self).until(
                 *args, **kwargs)
-        except TimeoutException:
+        except TimeoutException as e:
+            base64_str=self._driver.get_screenshot_as_base64()
+            data_uri = "data:image-png;base64," + base64_str
+            img_uri="<a href='"+data_uri+"'><img src='"+data_uri+"' height='100' width='100' /></a>"
+            logger.error(str(e)+" Screenshot saved to %s" % img_uri)
+            
             global SAVED_FILES_PATH
             if SAVED_FILES_PATH:
                 timestamp = repr(time.time()).replace('.', '')
@@ -414,7 +418,13 @@ class ScreenshotOnExceptionWebDriverWait(WebDriverWait):
             return super(
                 ScreenshotOnExceptionWebDriverWait, self).until_not(
                 *args, **kwargs)
-        except TimeoutException:
+        except TimeoutException as e:
+            
+            base64_str=self._driver.get_screenshot_as_base64()
+            data_uri = "data:image-png;base64," + base64_str
+            img_uri="<a href='"+data_uri+"'><img src='"+data_uri+"' height='100' width='100' /></a>"
+            logger.error(str(e)+" Screenshot Here %s" % img_uri)
+            
             global SAVED_FILES_PATH
             if SAVED_FILES_PATH:
                 timestamp = repr(time.time()).replace('.', '')
@@ -435,13 +445,11 @@ class ScreenshotOnExceptionWebDriverWait(WebDriverWait):
 
 class ScreenshotOnExceptionWebDriver(webdriver.Remote):
 
-
     def __init__(self, *args, **kwargs):
         super(ScreenshotOnExceptionWebDriver, self).__init__(*args, **kwargs)
         global SAVED_FILES_PATH
-        if SAVED_FILES_PATH:
-          if not os.path.exists(SAVED_FILES_PATH):
-            os.makedirs(SAVED_FILES_PATH)
+        if SAVED_FILES_PATH and not os.exists(SAVED_FILES_PATH):
+            os.system("mkdir %s" % SAVED_FILES_PATH)
 
     def execute(self, driver_command, params=None):
         curframe = inspect.currentframe()
@@ -460,7 +468,114 @@ class ScreenshotOnExceptionWebDriver(webdriver.Remote):
             try:
                 return super(ScreenshotOnExceptionWebDriver,
                              self).execute(driver_command, params=params)
-            except WebDriverException:
+            except WebDriverException as e:
+                
+                base64_str=self.get_screenshot_as_base64()
+                data_uri = "data:image-png;base64," + base64_str
+                img_uri="<a href='"+data_uri+"'><img src='"+data_uri+"' height='100' width='100' /></a>"
+                logger.error(str(e)+" Screenshot Here %s" % img_uri)
+                           
+                global SAVED_FILES_PATH
+                if SAVED_FILES_PATH:
+                    timestamp = repr(time.time()).replace('.', '')
+                    # save a screenshot
+                    screenshot_filename = SAVED_FILES_PATH + "/" + timestamp + ".png"
+                    self.get_screenshot_as_file(screenshot_filename)
+                    base64_str=self.get_screenshot_as_base64()
+                    data_uri = "data:image-png;base64," + base64_str
+                    img_uri="<a href='"+data_uri+"'><img src='"+data_uri+"' height='100' width='100' /></a>"
+                    logger.error(" Screenshot saved to %s" % img_uri)
+                    # save the html
+                    html_filename = SAVED_FILES_PATH + "/" + timestamp + ".html"
+                    html = self.page_source
+                    outfile = open(html_filename, 'w')
+                    outfile.write(html.encode('utf8', 'ignore'))
+                    outfile.close()
+                    logger.error("HTML saved to %s" % html_filename)
+                    logger.error("Page URL: %s" % self.current_url)
+                raise
+
+class ScreenshotOnExceptionFireFoxWebDriver(webdriver.Firefox):
+
+    def __init__(self, *args, **kwargs):
+        super(ScreenshotOnExceptionFireFoxWebDriver, self).__init__(*args, **kwargs)
+        global SAVED_FILES_PATH
+        if SAVED_FILES_PATH and not os.exists(SAVED_FILES_PATH):
+            os.system("mkdir %s" % SAVED_FILES_PATH)
+
+    def execute(self, driver_command, params=None):
+        curframe = inspect.currentframe()
+        calframe = inspect.getouterframes(curframe)
+        if driver_command in [
+            Command.SCREENSHOT,
+            Command.GET_PAGE_SOURCE,
+            Command.GET_CURRENT_URL
+        ]:
+            return super(ScreenshotOnExceptionFireFoxWebDriver,
+                             self).execute(driver_command, params=params)
+        elif len(calframe) > 4 and calframe[4][3] in ['until', 'until_not']:
+            return super(ScreenshotOnExceptionFireFoxWebDriver,
+                             self).execute(driver_command, params=params)
+        else:
+            try:
+                return super(ScreenshotOnExceptionFireFoxWebDriver,
+                             self).execute(driver_command, params=params)
+            except WebDriverException as e:
+                
+                base64_str=self.get_screenshot_as_base64()
+                data_uri = "data:image-png;base64," + base64_str
+                img_uri="<a href='"+data_uri+"'><img src='"+data_uri+"' height='100' width='100' /></a>"
+                logger.error(str(e)+" Screenshot Here %s" % img_uri)
+                
+                global SAVED_FILES_PATH
+                if SAVED_FILES_PATH:
+                    timestamp = repr(time.time()).replace('.', '')
+                    # save a screenshot
+                    screenshot_filename = SAVED_FILES_PATH + "/" + timestamp + ".png"
+                    self.get_screenshot_as_file(screenshot_filename)
+                    logger.error("Screenshot saved to %s" % screenshot_filename)
+                    
+                    # save the html
+                    html_filename = SAVED_FILES_PATH + "/" + timestamp + ".html"
+                    html = self.page_source
+                    outfile = open(html_filename, 'w')
+                    outfile.write(html.encode('utf8', 'ignore'))
+                    outfile.close()
+                    logger.error("HTML saved to %s" % html_filename)
+                    logger.error("Page URL: %s" % self.current_url)
+                raise
+
+class ScreenshotOnExceptionChromeWebDriver(webdriver.Chrome):
+
+    def __init__(self, *args, **kwargs):
+        super(ScreenshotOnExceptionChromeWebDriver, self).__init__(*args, **kwargs)
+        global SAVED_FILES_PATH
+        if SAVED_FILES_PATH and not os.exists(SAVED_FILES_PATH):
+            os.system("mkdir %s" % SAVED_FILES_PATH)
+
+    def execute(self, driver_command, params=None):
+        curframe = inspect.currentframe()
+        calframe = inspect.getouterframes(curframe)
+        if driver_command in [
+            Command.SCREENSHOT,
+            Command.GET_PAGE_SOURCE,
+            Command.GET_CURRENT_URL
+        ]:
+            return super(ScreenshotOnExceptionChromeWebDriver,
+                             self).execute(driver_command, params=params)
+        elif len(calframe) > 4 and calframe[4][3] in ['until', 'until_not']:
+            return super(ScreenshotOnExceptionChromeWebDriver,
+                             self).execute(driver_command, params=params)
+        else:
+            try:
+                return super(ScreenshotOnExceptionChromeWebDriver,
+                             self).execute(driver_command, params=params)
+            except WebDriverException as e:
+                base64_str=self.get_screenshot_as_base64()
+                data_uri = "data:image-png;base64," + base64_str
+                img_uri="<a href='"+data_uri+"'><img src='"+data_uri+"' height='100' width='100' /></a>"
+                logger.error(str(e)+" Screenshot Here %s" % img_uri)
+                
                 global SAVED_FILES_PATH
                 if SAVED_FILES_PATH:
                     timestamp = repr(time.time()).replace('.', '')
@@ -477,9 +592,56 @@ class ScreenshotOnExceptionWebDriver(webdriver.Remote):
                     logger.error("HTML saved to %s" % html_filename)
                     logger.error("Page URL: %s" % self.current_url)
                 raise
+            
+class ScreenshotOnExceptionIEWebDriver(webdriver.Ie):
 
+    def __init__(self, *args, **kwargs):
+        super(ScreenshotOnExceptionIEWebDriver, self).__init__(*args, **kwargs)
+        global SAVED_FILES_PATH
+        if SAVED_FILES_PATH:
+            os.system("mkdir -p %s" % SAVED_FILES_PATH)
 
-
+    def execute(self, driver_command, params=None):
+        curframe = inspect.currentframe()
+        calframe = inspect.getouterframes(curframe)
+        if driver_command in [
+            Command.SCREENSHOT,
+            Command.GET_PAGE_SOURCE,
+            Command.GET_CURRENT_URL
+        ]:
+            return super(ScreenshotOnExceptionIEWebDriver,
+                             self).execute(driver_command, params=params)
+        elif len(calframe) > 4 and calframe[4][3] in ['until', 'until_not']:
+            return super(ScreenshotOnExceptionIEWebDriver,
+                             self).execute(driver_command, params=params)
+        else:
+            try:
+                return super(ScreenshotOnExceptionIEWebDriver,
+                             self).execute(driver_command, params=params)
+            except WebDriverException as e:
+                
+                base64_str=self.get_screenshot_as_base64()
+                data_uri = "data:image-png;base64," + base64_str
+                img_uri="<a href='"+data_uri+"'><img src='"+data_uri+"' height='100' width='100' /></a>"
+                logger.error(str(e)+" Screenshot Here %s" % img_uri)
+                
+                global SAVED_FILES_PATH
+                if SAVED_FILES_PATH:
+                    timestamp = repr(time.time()).replace('.', '')
+                    # save a screenshot
+                    screenshot_filename = SAVED_FILES_PATH + "/" + timestamp + ".png"
+                    self.get_screenshot_as_file(screenshot_filename)
+                    logger.error("Screenshot saved to %s" % screenshot_filename)
+                    # save the html
+                    html_filename = SAVED_FILES_PATH + "/" + timestamp + ".html"
+                    html = self.page_source
+                    outfile = open(html_filename, 'w')
+                    outfile.write(html.encode('utf8', 'ignore'))
+                    outfile.close()
+                    logger.error("HTML saved to %s" % html_filename)
+                    logger.error("Page URL: %s" % self.current_url)
+                raise
+                        
 def build_webdriver(name="", tags=[], public=False):
     """Create and return the desired WebDriver instance."""
     global BROWSER_LOCATION
@@ -562,4 +724,3 @@ class SeleniumTestCase(TestCase):
 
     def tearDown(self):
         self.wd.quit()
-
